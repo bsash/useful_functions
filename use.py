@@ -98,3 +98,49 @@ def naive_filtfilt(b, x):
 
     # Remove padding and return
     return y[len(b)-1:-(len(b)-1)]
+
+def remove_outliers_iteratively(v, factorIQR=2, non_outlier_index=None):
+    """Gets the percentile of the featureVector and calculates the IQR.
+    Then removes outliers by checking whether they are outside median+factorIQR*IQR.
+    This function is iterative and doesn;t suffer from maximum recursion exception thrown by python.
+    Input: v - 1D Array. Vector from which outliers are to be removes.
+           factorIQR - Float. Factor to use in deciding the outlier threshold
+           non_outlier_index - If some outliers are already known. They can be passed here.
+    """
+    original_length = len(v)
+
+    if non_outlier_index is None:
+        non_outlier_index = np.arange(0, len(v))
+
+    while True:
+
+        # Get percentiles and find IQR
+        percentile = np.percentile(v, [25, 50, 75, 99], interpolation='lower')
+        median = percentile[1]
+        iqr = percentile[2] - percentile[0]
+
+        # Check if outliers are present
+        # If present, remove the detected outliers from the feature vector
+        outliers_present = False
+        for i in np.arange(0, len(v)):
+            if ((v[i] > median + factorIQR * iqr)
+                    or (v[i] < median - factorIQR * iqr)):  # condition for outlier
+                outliers_present = True
+                new_v = np.delete(v, i)
+                new_non_outlier_index = np.delete(non_outlier_index, i)
+
+        # Find the new IQR after outlier removal.
+        # Then check for outliers based on new IQR again.
+        if outliers_present:
+            v = new_v
+            non_outlier_index = new_non_outlier_index
+
+            # If the vector is too small then IQR will be faulty
+            # So once the length becomes smaller than half of original length
+            # return the remaining vector as non-outlier
+            if len(v) < 4 or len(v) < original_length/2:
+                return v, non_outlier_index
+
+            continue
+
+        return v, non_outlier_index
